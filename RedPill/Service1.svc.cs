@@ -8,8 +8,8 @@ using System.Text;
 
 namespace RedPill
 {
-  [DataContract]
-  public struct ContactDetails
+  [DataContract(Namespace="http://KnockKnock.readify.net")]
+  public class ContactDetails
   {
     [DataMember]
     public string EmailAddress;
@@ -21,9 +21,20 @@ namespace RedPill
     public string PhoneNumber;
   }
 
-  public enum TriangleType { Error, Equilateral, Isoceles, Scalene }
+  [DataContract(Namespace="http://KnockKnock.readify.net")]
+  public enum TriangleType 
+  { 
+    [EnumMember] 
+    Error,
+    [EnumMember]
+    Equilateral,
+    [EnumMember]
+    Isosceles,
+    [EnumMember]
+    Scalene
+  }
 
-  [ServiceContract]
+  [ServiceContract(Namespace="http://KnockKnock.readify.net")]
   public interface IRedPill
   {
     [OperationContract, FaultContract(typeof(ArgumentOutOfRangeException))]
@@ -36,31 +47,49 @@ namespace RedPill
     ContactDetails WhoAreYou();
   }
 
+  [ServiceBehavior(Namespace = "http://KnockKnock.readify.net")]
   public class RedPill : IRedPill
   {
+    private static double Phi = ((1d + Math.Sqrt(5d)) / 2d);
+    private static double D = 1d / Math.Sqrt(5d);
 
     public long FibonacciNumber(long n)
     {
-      if (n < 0) throw new ArgumentOutOfRangeException();
-      
-      return n < 2 ? n : FibonacciNumber(n - 1) + FibonacciNumber(n - 2);
+      if (!(-92 <= n && n <= 92)) Fault(new ArgumentOutOfRangeException("n", "Require 0 <= n <= 92"));
+
+      if (n < 0) return (long)Math.Pow(-1, -n + 1) * FibonacciNumber(-n);
+      return (long)((Math.Pow(Phi,n) - Math.Pow(1d - Phi, n)) * D);
     }
 
     public string ReverseWords(string s)
     {
-      if (s == null) throw new ArgumentNullException();
+      if (s == null) Fault(new ArgumentNullException("s", "Require s != null"));
 
       var result = new StringBuilder(s.Length);
-      for (int i = s.Length; i >= 0; i-- )
-        result.Append(s[i]);
+
+      int start = 0;
+
+      while (start < s.Length)
+      {
+        int end = start;
+        while (end < s.Length && !Char.IsWhiteSpace(s[end])) end++;
+
+        for (int i = end - 1; i >= start; i--) result.Append(s[i]);
+
+        start = end;
+        while (start < s.Length && Char.IsWhiteSpace(s[start])) result.Append(s[start++]);
+      }
+      
+      
       return result.ToString();
     }
 
     public TriangleType WhatShapeIsThis(int a, int b, int c)
     {
       if (a <= 0 || b <= 0 || c <= 0) return TriangleType.Error;
+      else if (!(a < b + c && b < a + c && c < a + b)) return TriangleType.Error;
       else if (a == b && b == c) return TriangleType.Equilateral;
-      else if (a == b || a == c) return TriangleType.Isoceles;
+      else if (a == b || a == c || b == c) return TriangleType.Isosceles;
       else return TriangleType.Scalene;
     }
 
@@ -73,6 +102,11 @@ namespace RedPill
         GivenName = "Gavin",
         PhoneNumber = "0403 508 862"
       };
+    }
+
+    void Fault<T>(T detail) where T : Exception
+    {
+      throw new FaultException<T>(detail, detail.Message);
     }
   }
 }
